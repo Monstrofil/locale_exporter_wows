@@ -1,13 +1,18 @@
 # Usage
 
-```usage: locale_exporter.py [-h] -l LOCALE [LOCALE ...]
+```
+usage: locale_exporter.py [-h] -l LOCALE [LOCALE ...]
 
 optional arguments:
   -h, --help            show this help message and exit
   -l LOCALE [LOCALE ...], --locale LOCALE [LOCALE ...]
-                        list of locale names```
+                        list of locale names
+```
+
 ## Example
-```root@localhost ~/ locale_exporter.py -l ru pl de be```
+```
+root@localhost ~/ locale_exporter.py -l ru pl de be
+```
 
 # Installation
 
