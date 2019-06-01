@@ -57,7 +57,7 @@ class LocalizationHelper(object):
             lang=locale_name
         )
         xml = requests.get(url, data).content
-        link, = etree.fromstring(xml).xpath('content/file/web_seeds/url/text()')
+        link = etree.fromstring(xml).xpath('content/file/web_seeds/url/text()')[0]
 
         return link
 
