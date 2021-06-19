@@ -50,6 +50,7 @@ class LocalizationHelper(object):
         :type locale_name: str
         :rtype: str
         """
+        # https://dl-wows-gc.wargaming.net/ww/patches/wows_0.10.5.0.4053181_ww/wows.ww_0.10.5.0.4053181_locale.wgpkg
         url = "http://update.worldofwarships.{}".format(self.LOCALE_TO_REGION[locale_name])
         data = dict(
             target='locale',
