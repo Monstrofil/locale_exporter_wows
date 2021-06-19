@@ -1,6 +1,10 @@
 #!/usr/bin/python
 # coding=utf-8
 import argparse
+import shutil
+from pathlib import Path
+
+import py7zr
 import os
 import tempfile
 
@@ -25,13 +29,47 @@ class LocalizationHelper(object):
     def __init__(self, locale_list):
         self.__locale_list = locale_list
 
-    def retrive(self):
-        for locale in self.__locale_list:
-            self.__retrive(locale)
+    def _extract_mo_locale_files(self, archive_path, locale_name):
+        with py7zr.SevenZipFile(archive_path, mode='r') as z:
+            versions = [
+                path for path in z.getnames()
+                if path.startswith('bin/') and path.count('/') == 1
+            ] # => ['3912232', '4046169']
+            highest_version = max(versions)
 
-    def __retrive(self, locale_name):
-        link = self.__obtain_link_wgpkg(locale_name)
-        self.__retrive_locale_file(link)
+            locale_path = highest_version + '/res/texts/{locale_name}/LC_MESSAGES/global.mo'.format(
+                locale_name=locale_name
+            )
+            temp_dir = tempfile.gettempdir()
+
+            z.extract(targets=[
+                os.path.basename(locale_path),
+                locale_path
+            ], path=temp_dir)
+
+            return os.path.join(temp_dir, locale_path)
+
+    def _download_locale_file(self, locale_file_url):
+        filename = os.path.basename(locale_file_url)
+        temp_path = os.path.join(tempfile.gettempdir(), filename)
+
+        if os.path.exists(temp_path):
+            return temp_path
+
+        with open(temp_path, 'wb') as f:
+            f.write(requests.get(locale_file_url).content)
+        return temp_path
+
+    def retrive(self):
+        locale_file_url = self._get_locale_archive_link()
+        path = self._download_locale_file(locale_file_url)
+
+        for locale in self.__locale_list:
+            self.__retrive(locale, path)
+
+    def __retrive(self, locale_name, locales_file):
+        mo_file = self._extract_mo_locale_files(locales_file, locale_name)
+        self.__retrive_locale_file(mo_file, export_to='wows.0_0_locale_{locale_name}.wgpkg.po'.format(locale_name=locale_name))
 
     def __obtain_link_wgpkg(self, locale_name):
         """
@@ -62,26 +100,29 @@ class LocalizationHelper(object):
 
         return link
 
-    def __retrive_locale_file(self, link):
-        """
-        Retrives wgpkg file, exports .mo;
-        Returns link to exported .mo file;
-        :type link: str 
-        :rtype: str 
-        """
+    def _get_locale_archive_link(self):
+        url = 'https://wgus-eu.wargaming.net/api/v1/patches_chain/'
+        data = dict(
+            protocol_version='1.10',
+            client_type='high',
+            lang='RU',
+            metadata_version='20210119113723',
+            metadata_protocol_version='6.10',
+            chain_id='f11',
+            client_current_version='0',
+            locale_current_version='0',
+            sdcontent_current_version='0',
+            game_id='WOWS.WW.PRODUCTION',
+        )
+        xml = requests.get(url, data).content
 
-        filename = os.path.basename(link)
-        temp_path = os.path.join(tempfile.gettempdir(), filename)
-        with open(temp_path, 'wb') as f:
-            f.write(requests.get(link).content)
+        locale_file = etree.fromstring(xml).xpath("patches_chain/patch[part = 'locale']/files[1]/file/name/text()")[0]
+        locale_file_url = 'https://dl-wows-gc.wargaming.net/ww/patches/' + locale_file
 
-        temp_extracted_dir = tempfile.gettempdir()
-        Popen(['7z', '-aoa', '-y', 'e', temp_path, '*.mo', '-r', '-o{}'.format(temp_extracted_dir)]).communicate()
-        os.unlink(temp_path)
+        return locale_file_url
 
-        locale_path = os.path.join(temp_extracted_dir, 'global.mo')
-        Popen(['msgunfmt', locale_path, '-o', '{}.po'.format(filename)]).communicate()
-        os.unlink(locale_path)
+    def __retrive_locale_file(self, mo_file, export_to):
+        Popen(['msgunfmt', mo_file, '-o', export_to]).communicate()
 
 
 if __name__ == '__main__':
